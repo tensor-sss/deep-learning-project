@@ -41,7 +41,6 @@ def evaluate():
 
 
 if __name__ == '__main__':
-    # 大数据   30G  100G
     # 加载数据 + dataset + dataloader + model + 损失函数 + 优化器 + 写训练的过程 + 写验证的过程 + 保存模型
     args = set_args()
 
@@ -102,25 +101,4 @@ if __name__ == '__main__':
 
         save_model_path = args.output_dir + '/' + "epoch{}_model.bin".format(epoch)
         torch.save(model.state_dict(), save_model_path)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

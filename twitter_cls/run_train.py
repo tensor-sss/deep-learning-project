@@ -14,7 +14,7 @@ from sklearn.metrics import accuracy_score
 from data_helper import MyDataset, Collater
 from transformers import AutoTokenizer
 import swanlab
-
+# 666
 swanlab.login(api_key="6YRUZelhDiHwXBHvOUbwl", save=True)
 
 

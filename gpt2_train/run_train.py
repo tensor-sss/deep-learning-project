@@ -11,16 +11,18 @@ from torch.optim import AdamW
 from data_helper import load_data, MyDataset, collate_fn
 from transformers import GPT2LMHeadModel, AutoTokenizer, GPT2Config
 import swanlab
-swanlab.login(api_key="xxxx", save=True)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+swanlab.login(api_key="6YRUZelhDiHwXBHvOUbwl", save=True)
 
 def get_model(args):
     # 有预训练权重
-    # model = GPT2LMHeadModel.from_pretrained(args.gpt2_pretrain)  # 没有.bin文件 所以会报错 找不到权重
+    model = GPT2LMHeadModel.from_pretrained(args.gpt2_pretrain)  # 没有.bin文件 所以会报错 找不到权重
 
     # 没有预训练权重  使用别人配置文件 做一个随机初始化的GPT2模型
-    config = GPT2Config.from_pretrained('./gpt2_pretrain/config.json')
-    model = GPT2LMHeadModel(config=config)
+    # config = GPT2Config.from_pretrained('./gpt2_pretrain/config.json')
+    # model = GPT2LMHeadModel(config=config)
     return model
 
 
@@ -32,7 +34,7 @@ def calc_loss(logits, label, loss_mask):
     label = label[:, 1:].contiguous()
     loss_mask = loss_mask[:, 1:]
 
-    loss_func = nn.CrossEntropyLoss(reduction='none')    # sum  mean
+    loss_func = nn.CrossEntropyLoss(reduction='none', ignore_index=0)    # sum  mean
     # print(logits.size())   # batch_size, max_len, vocab_size
     # print(loss_mask.size())   # batch_size, max_len
 
@@ -51,15 +53,47 @@ def calc_loss(logits, label, loss_mask):
 
 def evaluate(model, test_dataloader):
     model.eval()
-    # 算准确率
-    pass
+
+    total_correct = 0
+    total_count = 0
+
+    device = next(model.parameters()).device
+
+    with torch.no_grad():
+        for batch in test_dataloader:
+            input_ids, attention_mask, loss_mask = batch
+            input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
+            loss_mask = loss_mask.to(device)
+
+            outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask
+                )
+            logits = outputs.logits  # [B, T, V]
+
+            # GPT 自回归：预测下一个 token
+            logits = logits[:, :-1, :]  # [B, T-1, V]
+            labels = input_ids[:, 1:]  # [B, T-1]
+            loss_mask = loss_mask[:, 1:]  # [B, T-1]
+
+            # 预测 token
+            preds = torch.argmax(logits, dim=-1)  # [B, T-1]
+
+                # 只在有效位置统计
+            correct = (preds == labels) * loss_mask
+            total_correct += correct.sum().item()
+            total_count += loss_mask.sum().item()
+
+    acc = total_correct / (total_count + 1e-8)
+    return acc
 
 
 if __name__ == '__main__':
     args = set_args()
 
     swanlab.init(
-        project='GPT2生成',
+        project='GPT2-generation',
         experiment_name='作文生成'
     )
 
@@ -80,6 +114,7 @@ if __name__ == '__main__':
 
     # 3. 模型
     model = get_model(args)
+    model.to(device)
     optimizer = AdamW(model.parameters(), lr=args.learning_rate)
 
     global_step = 0
@@ -91,6 +126,9 @@ if __name__ == '__main__':
             # print(input_ids.size())   # torch.Size([2, 571])
             # print(attention_mask.size())  # torch.Size([2, 571])
             # print(loss_mask.size())   # torch.Size([2, 571])
+            input_ids = input_ids.to(device)
+            attention_mask = attention_mask.to(device)
+            loss_mask = loss_mask.to(device)
             out = model(input_ids=input_ids, attention_mask=attention_mask)
             logits = out.logits
             # print(logits.size())   # torch.Size([2, 518, 21129])  # batch_size, max_len, vocab_size

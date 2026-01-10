@@ -29,6 +29,10 @@ class MyDataset(Dataset):
         json_data = self.data[item]
         title = json_data['title']
         article = json_data['article']
+        print(title)
+        print(article)
+        exit()
+
 
         # res = self.tokenizer
         # print(res)

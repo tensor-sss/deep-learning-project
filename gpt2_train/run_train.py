@@ -22,7 +22,6 @@ if __name__ == '__main__':
     # 2. 实现dataset
     train_dataset = MyDataset(train_data, tokenizer)
     print(train_dataset[32])
-    exit()
 
 
 

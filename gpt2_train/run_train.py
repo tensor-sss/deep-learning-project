@@ -13,7 +13,7 @@ from transformers import GPT2LMHeadModel, AutoTokenizer, GPT2Config
 import swanlab
 
 
-swanlab.login(api_key="6YRUZelhDiHwXBHvOUbwl", save=True)
+swanlab.login(api_key="xxxxxxx", save=True)
 
 def get_model(args):
     # 有预训练权重

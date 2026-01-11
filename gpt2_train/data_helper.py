@@ -43,13 +43,16 @@ class MyDataset(Dataset):
         # 0    0  0  0 1  1  1 1  1  1  1   1      0     0     0
         # input_ids, loss_mask
 
+        # CLS 我 爱 你 SEP 我 爱 北 京 天 安 门 SEP
+        # CLS 我 爱 你 SEP 我 爱 北 京 天 安 门 SEP
+        # 0   0  0  0  1  1  1  1  1  1 1  1  0
+
         input_ids_title = self.tokenizer.encode(title, add_special_tokens=False)  # [x, x, x]
         input_ids_article = self.tokenizer.encode(article, add_special_tokens=False)
 
         input_ids_title = [self.tokenizer.cls_token_id] + input_ids_title + [self.tokenizer.sep_token_id]
         input_ids_article = input_ids_article + [self.tokenizer.sep_token_id]
-
-        loss_mask = [0] * len(input_ids_title) + [1] * len(input_ids_article)
+        loss_mask = [0] * (len(input_ids_title) - 1) + [1] * len(input_ids_article)  + [0]
         input_ids = input_ids_title + input_ids_article
         return {"input_ids": input_ids, "loss_mask": loss_mask}
 
@@ -84,21 +87,5 @@ def collate_fn(batch):
     attention_mask = torch.tensor(all_attention_mask, dtype=torch.long)
     loss_mask = torch.tensor(all_loss_mask, dtype=torch.long)
     return input_ids, attention_mask, loss_mask
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

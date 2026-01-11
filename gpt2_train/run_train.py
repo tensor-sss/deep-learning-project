@@ -12,7 +12,6 @@ from data_helper import load_data, MyDataset, collate_fn
 from transformers import GPT2LMHeadModel, AutoTokenizer, GPT2Config
 import swanlab
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 swanlab.login(api_key="6YRUZelhDiHwXBHvOUbwl", save=True)
 
@@ -51,13 +50,10 @@ def calc_loss(logits, label, loss_mask):
     return loss
 
 
-def evaluate(model, test_dataloader):
+def evaluate(model, test_dataloader, device):
     model.eval()
-
     total_correct = 0
     total_count = 0
-
-    device = next(model.parameters()).device
 
     with torch.no_grad():
         for batch in test_dataloader:
@@ -80,7 +76,7 @@ def evaluate(model, test_dataloader):
             # 预测 token
             preds = torch.argmax(logits, dim=-1)  # [B, T-1]
 
-                # 只在有效位置统计
+            # 只在有效位置统计
             correct = (preds == labels) * loss_mask
             total_correct += correct.sum().item()
             total_count += loss_mask.sum().item()
@@ -91,6 +87,8 @@ def evaluate(model, test_dataloader):
 
 if __name__ == '__main__':
     args = set_args()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     swanlab.init(
         project='GPT2-generation',
@@ -114,7 +112,7 @@ if __name__ == '__main__':
 
     # 3. 模型
     model = get_model(args)
-    model.to(device)
+    model.to(device)   # model.cuda()
     optimizer = AdamW(model.parameters(), lr=args.learning_rate)
 
     global_step = 0
@@ -144,7 +142,7 @@ if __name__ == '__main__':
             optimizer.step()  # 把梯度更新到参数上去
             swanlab.log({"train_loss": loss.item()}, step=global_step)
 
-        test_acc = evaluate(model, test_dataloader)
+        test_acc = evaluate(model, test_dataloader, device)
         # os.path.join(args.output_dir, 'log.txt')   # ./output/log.txt
         swanlab.log({"accuracy": test_acc}, step=epoch)
 

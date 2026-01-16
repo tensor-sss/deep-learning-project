@@ -1,10 +1,10 @@
 """
-@file   : model.py
-@time   : 2026-01-11
+@file   : model_v2.py
+@time   : 2026-01-16
 """
-import numpy as np
-import torch
 
+import torch
+import numpy as np
 from torch import nn
 
 
@@ -133,30 +133,54 @@ class FeedForward(nn.Module):
         return x
 
 
-class Encoder(nn.Module):
-    def __init__(self, vocab_size):
-        super(Encoder, self).__init__()
-        self.embedding = Embedding(vocab_size)
+class EncoderLayer(nn.Module):
+    def __init__(self):
+        super(EncoderLayer, self).__init__()
         self.multihead_attention = MultiHead_Attention()
         self.feedforward = FeedForward()
+
+    def forward(self, x, mask):
+        x = self.multihead_attention(x, x, x, mask)
+        x = self.feedforward(x)
+        return x
+
+
+class Encoder(nn.Module):
+    def __init__(self, vocab_size, layers=12):
+        super(Encoder, self).__init__()
+        self.embedding = Embedding(vocab_size)
+        self.layer_encoder = nn.ModuleList([EncoderLayer() for _ in range(layers)])  # 12个独立的encoder
 
     def forward(self, encoder_input_ids, encoder_attention_mask):
         # embeddding + multi-head-attention + feedforward + multi-head-attention + feedforward + multi-head-attention + feedforward
         x = self.embedding(encoder_input_ids)
         mask_matrix = get_attention_padding_matrix(encoder_input_ids, encoder_input_ids)  # 为了算注意力的时候 不关注padding
 
-        for i in range(12):
-            x = self.multihead_attention(x, x, x, mask_matrix)
-            x = self.feedforward(x)
+        for layers in self.layer_encoder:
+            x = layers(x, mask_matrix)
+        return x
+
+
+class DecoderLayer(nn.Module):
+    def __init__(self):
+        super(DecoderLayer, self).__init__()
+        self.mask_multihead_attention = MultiHead_Attention()
+        self.multihead_attention = MultiHead_Attention()
+
+        self.feedforward = FeedForward()
+
+    def forward(self, x, encoder_output, decoder_mask, encoder_decoder_mask):
+        x = self.mask_multihead_attention(x, x, x, decoder_mask)  # 算的第一个Masked Multi-Head Attention
+        x = self.multihead_attention(x, encoder_output, encoder_output, encoder_decoder_mask)
+        x = self.feedforward(x)
         return x
 
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size):
+    def __init__(self, vocab_size, layers=12):
         super(Decoder, self).__init__()
         self.embedding = Embedding(vocab_size)
-        self.multihead_attention = MultiHead_Attention()
-        self.feedforward = FeedForward()
+        self.layer_decoder = nn.ModuleList([DecoderLayer() for _ in range(layers)])  # 12个独立的encoder
 
     def forward(self, encoder_input_ids, encoder_output, decoder_input_ids, decoder_attention_mask):
         x = self.embedding(decoder_input_ids)
@@ -168,12 +192,9 @@ class Decoder(nn.Module):
         decoder_padding_mask_matrix = get_attention_padding_matrix(decoder_input_ids, decoder_input_ids)
         decoder_subseq_mask_matrix = get_causal_mask(decoder_input_ids)
         decoder_mask = torch.ge(decoder_padding_mask_matrix+decoder_subseq_mask_matrix, 1)
-        # print(decoder_mask.size())   # torch.Size([2, 259, 259])
-        for i in range(12):
-            x = self.multihead_attention(x, x, x, decoder_mask)  # 算的第一个Masked Multi-Head Attention
-            x = self.multihead_attention(x, encoder_output, encoder_output, encoder_padding_mask_matrix)
-            x = self.feedforward(x)
-        # print(x.size())   # torch.Size([2, 59, 768])
+
+        for layer in self.layer_decoder:
+            x = layer(x, encoder_output, decoder_mask, encoder_padding_mask_matrix)
         return x
 
 
@@ -186,8 +207,11 @@ class Transformer(nn.Module):
 
     def forward(self, encoder_input_ids, encoder_attention_mask, decoder_input_ids, decoder_attention_mask):
         encoder_output = self.encoder(encoder_input_ids, encoder_attention_mask)
+
         # print(encoder_output.size())   # torch.Size([2, 17, 768]) batch_size, max_len, hidden_size   torch.Size([2, 12, 768])
         decoder_output = self.decoder(encoder_input_ids, encoder_output, decoder_input_ids, decoder_attention_mask)
+        # print(decoder_output.size())  # torch.Size([2, 140, 768])
+
         # batch_size, max_len, hidden_size
         logits = self.predict_layer(decoder_output)   # batch_size, max_len, vocab_size
         # [START] 在 天 安 门 [END]

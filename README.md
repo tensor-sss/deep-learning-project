@@ -20,10 +20,20 @@
 #### 手撕GPT2
 
 #### 微调GPT2
-微调GPT2的权重: https://huggingface.co/yuanzhoulvpi/gpt2_chinese/tree/main
+预训练GPT2的权重: https://huggingface.co/yuanzhoulvpi/gpt2_chinese/tree/main
 
 训练: `python run_train.py`
+
 推理: `python inference_v2.py`
+
+
+### Encoder-Decoder
+预训练T5的权重: https://huggingface.co/Langboat/mengzi-t5-base/tree/main
+
+训练: `python run_train.py`
+
+推理: `python inference.py`
+
 
 
 

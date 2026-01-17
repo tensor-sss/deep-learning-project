@@ -14,7 +14,7 @@ def evalute_model(model, test_dataloader, tokenizer, device):
             batch = {k: v.to(device) for k, v in batch.items()}
 
             encoder_input_ids = batch['encoder_input_ids']
-            attention_mask = batch['attention_mask']
+            attention_mask = batch['encoder_attention_mask']
             decoder_input_ids = batch['decoder_input_ids']
             decoder_attention_mask = batch['decoder_attention_mask']
             labels = batch['labels']

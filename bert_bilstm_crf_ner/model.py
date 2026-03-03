@@ -15,7 +15,7 @@ args = set_args()
 class Model(nn.Module):
     def __init__(self, label_num):
         super(Model, self).__init__()
-        self.bert = BertModel.from_pretrained(args.bert_pretrain, dtype=torch.float32)  # 有了bert模型 而且加载了预训练权重
+        self.bert = BertModel.from_pretrained(args.bert_pretrain, torch_dtype=torch.float32)  # 有了bert模型 而且加载了预训练权重
         self.prediction = nn.Linear(768, label_num)
 
     def forward(self, input_ids, attention_mask):

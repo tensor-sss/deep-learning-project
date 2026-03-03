@@ -36,19 +36,22 @@ class NERDataset(Dataset):
         # token_list: ['2', '0', '0', '6', '年', '3', '月', '加', '入', '原', '平', '安', '银', '行', '，', '历', '任', '运', '营', '总', '监', '、', '人', '力', '资', '源', '总', '监', '，']
         # label_list: ['O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B-ORG', 'I-ORG', 'I-ORG', 'I-ORG', 'O', 'O', 'O', 'B-TITLE', 'I-TITLE', 'I-TITLE', 'I-TITLE', 'O', 'B-TITLE', 'I-TITLE', 'I-TITLE', 'I-TITLE', 'I-TITLE', 'I-TITLE', 'O']
 
-        input_ids = []
+        input_ids = [self.tokenizer.cls_token_id]
         for token in token_list:
             idx = self.tokenizer.convert_tokens_to_ids(token)
             input_ids.append(idx)
 
-        label_ids = []
+        label_ids = [-100]
         for label in label_list:
             idx = self.label2id[label]
             label_ids.append(idx)
+
+        input_ids = input_ids[:511] + [self.tokenizer.sep_token_id]
+        label_ids = label_ids[:511] + [-100]  # SEP 设为 -100
         return {"input_ids": input_ids, "label_ids": label_ids}
 
 
-def padding_to_max_len(idx, max_len, padding=0):
+def padding_to_max_len(idx, max_len, padding = 0):
     if len(idx) > max_len:
         idx = idx[:max_len]
     else:
@@ -71,11 +74,11 @@ def collate_fn(batch):
         input_ids = item['input_ids']
         attention_mask = [1] * len(input_ids)
 
-        input_ids = padding_to_max_len(input_ids, max_len, padding=0)
-        attention_mask = padding_to_max_len(attention_mask, max_len, padding=0)
+        input_ids = padding_to_max_len(input_ids, max_len, padding = 0)
+        attention_mask = padding_to_max_len(attention_mask, max_len, padding = 0)
 
         label_ids = item['label_ids']
-        label_ids = padding_to_max_len(label_ids, max_len, padding=0)
+        label_ids = padding_to_max_len(label_ids, max_len, padding = -100)
 
         input_ids_list.append(input_ids)
         attention_mask_list.append(attention_mask)

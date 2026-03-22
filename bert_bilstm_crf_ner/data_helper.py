@@ -41,13 +41,13 @@ class NERDataset(Dataset):
             idx = self.tokenizer.convert_tokens_to_ids(token)
             input_ids.append(idx)
 
-        label_ids = [-100]
+        label_ids = [0]
         for label in label_list:
             idx = self.label2id[label]
             label_ids.append(idx)
 
         input_ids = input_ids[:511] + [self.tokenizer.sep_token_id]
-        label_ids = label_ids[:511] + [-100]  # SEP 设为 -100
+        label_ids = label_ids[:511] + [0]  # SEP 设为 -100
         return {"input_ids": input_ids, "label_ids": label_ids}
 
 
@@ -78,7 +78,7 @@ def collate_fn(batch):
         attention_mask = padding_to_max_len(attention_mask, max_len, padding = 0)
 
         label_ids = item['label_ids']
-        label_ids = padding_to_max_len(label_ids, max_len, padding = -100)
+        label_ids = padding_to_max_len(label_ids, max_len, padding =0)
 
         input_ids_list.append(input_ids)
         attention_mask_list.append(attention_mask)

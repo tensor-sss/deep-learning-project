@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score
 from data_helper import load_data, NERDataset, collate_fn
 from transformers.models.bert import BertTokenizer
 from torch.utils.data import DataLoader
-from model import Model
+from model import Model, Model_V1, Model_V2
 from torch import nn
 from torch.optim import AdamW
 
@@ -72,7 +72,9 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn)  # 封装batch 转tensor
     dev_dataloader = DataLoader(dev_dataset, batch_size=args.batch_size, collate_fn=collate_fn)
 
-    model = Model(label_num)
+    # model = Model(label_num)
+    # model = Model_V1(label_num)
+    model = Model_V2(label_num)
     model.to(device)
     optimizer = AdamW(model.parameters(), lr=args.learning_rate)
 
@@ -86,19 +88,22 @@ if __name__ == '__main__':
             # print(attention_mask.size())   #
             # print(label_ids.size())
 
-            logits = model(input_ids, attention_mask)   # model.forward(input_ids, attention_mask)
-            # print(logits.size())   # torch.Size([batch_size, max_len, 17])
+            # logits = model(input_ids, attention_mask)
+            # logits = logits.view(-1, label_num)
+            # label_ids = label_ids.view(-1)
+            # loss = loss_func(logits, label_ids)
 
-            logits = logits.view(-1, label_num)
-            label_ids = label_ids.view(-1)
-            # print(logits.size())
-            # print(label_ids.size())
-            loss = loss_func(logits, label_ids)
+            # CRF
+            loss = model(input_ids, attention_mask, label_ids)   # model.forward(input_ids, attention_mask)
             print('epoch:{}, step:{}, loss:{: 8f}'.format(epoch + 1, step + 1, loss))
+            exit()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            save_model_path = args.output_dir + '/' + 'epoch{}_model.bin'.format(epoch + 1)
+            torch.save(model.state_dict(), save_model_path)
 
 
         test_acc = evaluate()  #xxx

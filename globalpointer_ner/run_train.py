@@ -19,7 +19,7 @@ from torch.optim import AdamW
 
 
 def evaluate(dev_dataloader, model):
-    a, b = 0, 0
+    a_, b_ = 0, 0
     for step, batch in enumerate(dev_dataloader):
         # 原来的文本
         input_ids, attention_mask, label_ids = [t.to(device) for t in batch[:-1]]  # (input_ids, attention_mask, label_ids)
@@ -56,10 +56,9 @@ def evaluate(dev_dataloader, model):
             # print(predict_entities)
             # print(true_entities)  # ]
             # 预测对了多少个  在真实标签中有多少实体
-
-            a += len(set(predict_entities) & set(true_entities))
-            b += len(true_entities)
-    acc = a / b
+            a_ += len(set(predict_entities) & set(true_entities))
+            b_ += len(true_entities)
+    acc = a_ / b_
     # precision  recall  f1_score=(2*p*r)/(p+r)
     return acc
 

@@ -4,19 +4,22 @@
 """
 # dataset  -> dataloader -> 模型 -> 优化器 和 损失 -> 训练 -> 验证 -> 保存模型 -> 推理测试
 import pandas as pd
+import numpy as np
 import torch.cuda
 from config import set_args
 from transformers.models.bert import BertTokenizer, BertModel
 from data_helper import MyDataset, collate_fn
 from torch.utils.data import DataLoader
-from model import Model
+from model import Reg_Model
 import torch.nn.functional as F
 from torch import nn
 from torch.optim import AdamW
 
 
-# 斯皮尔曼相关系数  皮尔逊相关系数
+# 斯皮尔曼相关系数
 def evaluate(model, valid_dataloader):
+    all_preds = []
+    all_labels = []
     for batch in valid_dataloader:
         if torch.cuda.is_available():
             batch = [t.cuda() for t in batch]
@@ -24,18 +27,14 @@ def evaluate(model, valid_dataloader):
             sent1_input_ids, sent1_attention_mask, sent2_input_ids, sent2_attention_mask, label = batch
             sent1_vec = model(sent1_input_ids, sent1_attention_mask)
             sent2_vec = model(sent2_input_ids, sent2_attention_mask)
+            sim_score = F.cosine_similarity(sent1_vec, sent2_vec)
+            all_preds.extend(sim_score.detach().cpu().tolist())
+            all_labels.extend(label.detach().cpu().tolist())
 
-        sent1_vec = F.normalize(sent1_vec, dim=-1, eps=1e-12)
-        sent2_vec = F.normalize(sent2_vec, dim=-1, eps=1e-12)
-        # (4, 768),  (4, 768)  =>  (4, 1)
-        out = sent1_vec * sent2_vec
-        out = out.sum(dim=-1)
-        print(out)
-        exit()
-
-        # out = F.sigmoid(out)
-        # 以0.5分界线 去看
-
+    pred_rank = pd.Series(all_preds).rank(method='average').to_numpy(dtype=np.float64)
+    label_rank = pd.Series(all_labels).rank(method='average').to_numpy(dtype=np.float64)
+    spearman = np.corrcoef(pred_rank, label_rank)[0, 1]
+    return float(spearman)
 
 
 if __name__ == '__main__':
@@ -50,10 +49,12 @@ if __name__ == '__main__':
     valid_dataset = MyDataset(valid_df, tokenizer)
     valid_dataloader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=collate_fn)
 
-    model = Model(args)
+    model = Reg_Model(args)
+    if torch.cuda.is_available():
+        model = model.cuda()
 
-    # loss_func = nn.CrossEntropyLoss()
-    loss_func = nn.BCEWithLogitsLoss()  # sigmoid + cross_entropy
+    # 分类
+    loss_func = nn.MSELoss()   #  回归方式
     optimizer = AdamW(model.parameters(), lr=args.learning_rate)
 
     for epoch in range(args.num_epochs):
@@ -64,24 +65,17 @@ if __name__ == '__main__':
             sent1_input_ids, sent1_attention_mask, sent2_input_ids, sent2_attention_mask, label = batch
             sent1_vec = model(sent1_input_ids, sent1_attention_mask)
             sent2_vec = model(sent2_input_ids, sent2_attention_mask)
-            sent1_vec = F.normalize(sent1_vec, dim=-1, eps=1e-12)
-            sent2_vec = F.normalize(sent2_vec, dim=-1, eps=1e-12)
-            # (4, 768),  (4, 768)  =>  (4, 1)
-            out = sent1_vec * sent2_vec
-            out = out.sum(dim=-1)
-            loss = loss_func(out, label)
-
+            out = F.cosine_similarity(sent1_vec, sent2_vec)
+            loss = loss_func(out, label.to(dtype=torch.float32))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             print("epoch:{}, step:{}, loss:{}".format(epoch, step, loss.item()))
 
-            model.eval()
-            evaluate(model, valid_dataloader)
+        model.eval()
+        spearman = evaluate(model, valid_dataloader)
+        print("epoch:{}, step:{}, valid_spearman:{:.6f}".format(epoch, step, spearman))
 
-
-
-
-
-
-
+    save_model_path = getattr(args, 'save_model_path', './reg_last_model.pt')
+    torch.save(model.state_dict(), save_model_path)
+    print("last model saved to {}".format(save_model_path))

@@ -74,21 +74,7 @@ def collate_fn(batch):
     sent1_attention_mask = torch.tensor(all_sent1_attention_mask, dtype=torch.long)
     sent2_input_ids = torch.tensor(all_sent2_input_ids, dtype=torch.long)
     sent2_attention_mask = torch.tensor(all_sent2_attention_mask, dtype=torch.long)
-
-    label = torch.tensor(all_labels, dtype=torch.float)
-
+    # label = torch.tensor(all_labels, dtype=torch.float)   # 回归
+    label = torch.tensor(all_labels, dtype=torch.long)   # 分类
     return sent1_input_ids, sent1_attention_mask, sent2_input_ids, sent2_attention_mask, label
-
-
-
-
-
-
-
-
-
-
-
-
-
 
